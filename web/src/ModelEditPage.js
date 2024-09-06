@@ -19,6 +19,10 @@ import * as OrganizationBackend from "./backend/OrganizationBackend";
 import * as Setting from "./Setting";
 import i18next from "i18next";
 
+import {Controlled as CodeMirror} from "react-codemirror2";
+import "codemirror/lib/codemirror.css";
+require("codemirror/mode/properties/properties");
+
 const {Option} = Select;
 
 class ModelEditPage extends React.Component {
@@ -32,6 +36,7 @@ class ModelEditPage extends React.Component {
       organizations: [],
       users: [],
       mode: props.location.mode !== undefined ? props.location.mode : "edit",
+      useIframeEditor: true,
     };
     this.iframeRef = React.createRef();
   }
@@ -87,7 +92,7 @@ class ModelEditPage extends React.Component {
   }
 
   handleMessage = (event) => {
-    if (event.origin !== "http://editor.casbin.org") {
+    if (event.origin !== "http://casbin-editor-xi.vercel.app") {
       return;
     }
     if (event.data.type === "modelUpdate") {
@@ -106,6 +111,12 @@ class ModelEditPage extends React.Component {
     window.removeEventListener("message", this.handleMessage);
   }
 
+  toggleEditor = () => {
+    this.setState(prevState => ({
+      useIframeEditor: !prevState.useIframeEditor,
+    }));
+  };
+
   renderModel() {
     return (
       <Card size="small" title={
@@ -114,6 +125,9 @@ class ModelEditPage extends React.Component {
           <Button onClick={() => this.submitModelEdit(false)}>{i18next.t("general:Save")}</Button>
           <Button style={{marginLeft: "20px"}} type="primary" onClick={() => this.submitModelEdit(true)}>{i18next.t("general:Save & Exit")}</Button>
           {this.state.mode === "add" ? <Button style={{marginLeft: "20px"}} onClick={() => this.deleteModel()}>{i18next.t("general:Cancel")}</Button> : null}
+          <Button style={{marginLeft: "20px"}} onClick={this.toggleEditor}>
+            {this.state.useIframeEditor ? "Switch to CodeMirror" : "Switch to Iframe Editor"}
+          </Button>
         </div>
       } style={(Setting.isMobile()) ? {margin: "5px"} : {}} type="inner">
         <Row style={{marginTop: "10px"}} >
@@ -164,14 +178,27 @@ class ModelEditPage extends React.Component {
           </Col>
           <Col span={22}>
             <div style={{width: "100%"}} >
-              <iframe
-                ref={this.iframeRef}
-                src={`http://editor.casbin.org/model-editor?model=${encodeURIComponent(this.state.model.modelText)}`}
-                frameBorder="0"
-                width="100%"
-                height="500px"
-                title="Casbin Model Editor"
-              />
+              {this.state.useIframeEditor ? (
+                <iframe
+                  ref={this.iframeRef}
+                  src={`http://casbin-editor-xi.vercel.app/model-editor?model=${encodeURIComponent(this.state.model.modelText)}`}
+                  frameBorder="0"
+                  width="100%"
+                  height="500px"
+                  title="Casbin Model Editor"
+                />
+              ) : (
+                <CodeMirror
+                  value={this.state.model.modelText}
+                  options={{mode: "properties", theme: "default"}}
+                  onBeforeChange={(editor, data, value) => {
+                    if (Setting.builtInObject(this.state.model)) {
+                      return;
+                    }
+                    this.updateModelField("modelText", value);
+                  }}
+                />
+              )}
             </div>
           </Col>
         </Row>
@@ -180,42 +207,48 @@ class ModelEditPage extends React.Component {
   }
 
   submitModelEdit(exitAfterSave) {
-    if (this.iframeRef.current) {
+    if (this.state.useIframeEditor && this.iframeRef.current) {
       this.iframeRef.current.contentWindow.postMessage({type: "getModelText"}, "*");
-    }
-    new Promise((resolve) => {
-      const handleMessage = (event) => {
-        if (event.data.type === "modelUpdate") {
-          window.removeEventListener("message", handleMessage);
-          this.updateModelField("modelText", event.data.modelText);
-          resolve();
-        }
-      };
-      window.addEventListener("message", handleMessage);
-    }).then(() => {
-      const model = Setting.deepCopy(this.state.model);
-      ModelBackend.updateModel(this.state.organizationName, this.state.modelName, model)
-        .then((res) => {
-          if (res.status === "ok") {
-            Setting.showMessage("success", i18next.t("general:Successfully saved"));
-            this.setState({
-              modelName: this.state.model.name,
-            });
-
-            if (exitAfterSave) {
-              this.props.history.push("/models");
-            } else {
-              this.props.history.push(`/models/${this.state.model.owner}/${this.state.model.name}`);
-            }
-          } else {
-            Setting.showMessage("error", `${i18next.t("general:Failed to save")}: ${res.msg}`);
-            this.updateModelField("name", this.state.modelName);
+      new Promise((resolve) => {
+        const handleMessage = (event) => {
+          if (event.data.type === "modelUpdate") {
+            window.removeEventListener("message", handleMessage);
+            this.updateModelField("modelText", event.data.modelText);
+            resolve();
           }
-        })
-        .catch(error => {
-          Setting.showMessage("error", `${i18next.t("general:Failed to connect to server")}: ${error}`);
-        });
-    });
+        };
+        window.addEventListener("message", handleMessage);
+      }).then(() => {
+        this.performSubmit(exitAfterSave);
+      });
+    } else {
+      this.performSubmit(exitAfterSave);
+    }
+  }
+
+  performSubmit(exitAfterSave) {
+    const model = Setting.deepCopy(this.state.model);
+    ModelBackend.updateModel(this.state.organizationName, this.state.modelName, model)
+      .then((res) => {
+        if (res.status === "ok") {
+          Setting.showMessage("success", i18next.t("general:Successfully saved"));
+          this.setState({
+            modelName: this.state.model.name,
+          });
+
+          if (exitAfterSave) {
+            this.props.history.push("/models");
+          } else {
+            this.props.history.push(`/models/${this.state.model.owner}/${this.state.model.name}`);
+          }
+        } else {
+          Setting.showMessage("error", `${i18next.t("general:Failed to save")}: ${res.msg}`);
+          this.updateModelField("name", this.state.modelName);
+        }
+      })
+      .catch(error => {
+        Setting.showMessage("error", `${i18next.t("general:Failed to connect to server")}: ${error}`);
+      });
   }
 
   deleteModel() {
