@@ -62,16 +62,19 @@ const CasbinEditor = ({model, useIframeEditor, onModelTextChange, onSubmit}) => 
   }
 
   return (
-    <CodeMirror
-      value={model.modelText}
-      options={{mode: "properties", theme: "default"}}
-      onBeforeChange={(editor, data, value) => {
-        if (Setting.builtInObject(model)) {
-          return;
-        }
-        onModelTextChange(value);
-      }}
-    />
+    <div style={{height: "100%", width: "100%"}}>
+      <CodeMirror
+        value={model.modelText}
+        className="full-height-editor"
+        options={{mode: "properties", theme: "default"}}
+        onBeforeChange={(editor, data, value) => {
+          if (Setting.builtInObject(model)) {
+            return;
+          }
+          onModelTextChange(value);
+        }}
+      />
+    </div>
   );
 };
 

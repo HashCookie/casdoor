@@ -193,7 +193,7 @@ class ModelEditPage extends React.Component {
             {Setting.getLabel(i18next.t("model:Model text"), i18next.t("model:Model text - Tooltip"))} :
           </Col>
           <Col span={22}>
-            <div style={{width: "100%"}} >
+            <div style={{position: "relative", height: "500px"}} >
               <ModelEditor
                 model={this.state.model}
                 useIframeEditor={this.state.useIframeEditor}
