@@ -33,7 +33,7 @@ class ModelEditPage extends React.Component {
       organizations: [],
       users: [],
       mode: props.location.mode !== undefined ? props.location.mode : "edit",
-      useIframeEditor: true,
+      useIframeEditor: false,
     };
     this.submitModelEdit = this.submitModelEdit.bind(this);
   }
@@ -142,7 +142,7 @@ class ModelEditPage extends React.Component {
           <Button style={{marginLeft: "20px"}} type="primary" onClick={() => this.submitModelEdit(true)}>{i18next.t("general:Save & Exit")}</Button>
           {this.state.mode === "add" ? <Button style={{marginLeft: "20px"}} onClick={() => this.deleteModel()}>{i18next.t("general:Cancel")}</Button> : null}
           <Button style={{marginLeft: "20px"}} onClick={this.toggleEditor}>
-            {this.state.useIframeEditor ? "Switch to CodeMirror" : "Switch to Iframe Editor"}
+            {this.state.useIframeEditor ? "Switch to Basic Editor" : "Switch to Advanced Editor"}
           </Button>
         </div>
       } style={(Setting.isMobile()) ? {margin: "5px"} : {}} type="inner">
