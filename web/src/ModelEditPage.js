@@ -18,10 +18,7 @@ import * as ModelBackend from "./backend/ModelBackend";
 import * as OrganizationBackend from "./backend/OrganizationBackend";
 import * as Setting from "./Setting";
 import i18next from "i18next";
-
-import {Controlled as CodeMirror} from "react-codemirror2";
-import "codemirror/lib/codemirror.css";
-require("codemirror/mode/properties/properties");
+import ModelEditor from "./CasbinEditor";
 
 const {Option} = Select;
 
@@ -38,7 +35,7 @@ class ModelEditPage extends React.Component {
       mode: props.location.mode !== undefined ? props.location.mode : "edit",
       useIframeEditor: true,
     };
-    this.iframeRef = React.createRef();
+    this.submitModelEdit = this.submitModelEdit.bind(this);
   }
 
   UNSAFE_componentWillMount() {
@@ -91,31 +88,50 @@ class ModelEditPage extends React.Component {
     });
   }
 
-  handleMessage = (event) => {
-    if (event.origin !== "http://casbin-editor-xi.vercel.app") {
-      return;
-    }
-    if (event.data.type === "modelUpdate") {
-      if (Setting.builtInObject(this.state.model)) {
-        return;
-      }
-      this.updateModelField("modelText", event.data.modelText);
-    }
-  };
-
-  componentDidMount() {
-    window.addEventListener("message", this.handleMessage);
+  submitModelEdit(exitAfterSave) {
+    this.modelEditorSubmit().then(() => {
+      this.performSubmit(exitAfterSave);
+    });
   }
 
-  componentWillUnmount() {
-    window.removeEventListener("message", this.handleMessage);
+  performSubmit(exitAfterSave) {
+    const model = Setting.deepCopy(this.state.model);
+    ModelBackend.updateModel(this.state.organizationName, this.state.modelName, model)
+      .then((res) => {
+        if (res.status === "ok") {
+          Setting.showMessage("success", i18next.t("general:Successfully saved"));
+          this.setState({
+            modelName: this.state.model.name,
+          });
+
+          if (exitAfterSave) {
+            this.props.history.push("/models");
+          } else {
+            this.props.history.push(`/models/${this.state.model.owner}/${this.state.model.name}`);
+          }
+        } else {
+          Setting.showMessage("error", `${i18next.t("general:Failed to save")}: ${res.msg}`);
+          this.updateModelField("name", this.state.modelName);
+        }
+      })
+      .catch(error => {
+        Setting.showMessage("error", `${i18next.t("general:Failed to connect to server")}: ${error}`);
+      });
   }
 
-  toggleEditor = () => {
-    this.setState(prevState => ({
-      useIframeEditor: !prevState.useIframeEditor,
-    }));
-  };
+  deleteModel() {
+    ModelBackend.deleteModel(this.state.model)
+      .then((res) => {
+        if (res.status === "ok") {
+          this.props.history.push("/models");
+        } else {
+          Setting.showMessage("error", `${i18next.t("general:Failed to delete")}: ${res.msg}`);
+        }
+      })
+      .catch(error => {
+        Setting.showMessage("error", `${i18next.t("general:Failed to connect to server")}: ${error}`);
+      });
+  }
 
   renderModel() {
     return (
@@ -178,27 +194,14 @@ class ModelEditPage extends React.Component {
           </Col>
           <Col span={22}>
             <div style={{width: "100%"}} >
-              {this.state.useIframeEditor ? (
-                <iframe
-                  ref={this.iframeRef}
-                  src={`http://casbin-editor-xi.vercel.app/model-editor?model=${encodeURIComponent(this.state.model.modelText)}`}
-                  frameBorder="0"
-                  width="100%"
-                  height="500px"
-                  title="Casbin Model Editor"
-                />
-              ) : (
-                <CodeMirror
-                  value={this.state.model.modelText}
-                  options={{mode: "properties", theme: "default"}}
-                  onBeforeChange={(editor, data, value) => {
-                    if (Setting.builtInObject(this.state.model)) {
-                      return;
-                    }
-                    this.updateModelField("modelText", value);
-                  }}
-                />
-              )}
+              <ModelEditor
+                model={this.state.model}
+                useIframeEditor={this.state.useIframeEditor}
+                onModelTextChange={(value) => this.updateModelField("modelText", value)}
+                onSubmit={(submitFunc) => {
+                  this.modelEditorSubmit = submitFunc;
+                }}
+              />
             </div>
           </Col>
         </Row>
@@ -206,64 +209,11 @@ class ModelEditPage extends React.Component {
     );
   }
 
-  submitModelEdit(exitAfterSave) {
-    if (this.state.useIframeEditor && this.iframeRef.current) {
-      this.iframeRef.current.contentWindow.postMessage({type: "getModelText"}, "*");
-      new Promise((resolve) => {
-        const handleMessage = (event) => {
-          if (event.data.type === "modelUpdate") {
-            window.removeEventListener("message", handleMessage);
-            this.updateModelField("modelText", event.data.modelText);
-            resolve();
-          }
-        };
-        window.addEventListener("message", handleMessage);
-      }).then(() => {
-        this.performSubmit(exitAfterSave);
-      });
-    } else {
-      this.performSubmit(exitAfterSave);
-    }
-  }
-
-  performSubmit(exitAfterSave) {
-    const model = Setting.deepCopy(this.state.model);
-    ModelBackend.updateModel(this.state.organizationName, this.state.modelName, model)
-      .then((res) => {
-        if (res.status === "ok") {
-          Setting.showMessage("success", i18next.t("general:Successfully saved"));
-          this.setState({
-            modelName: this.state.model.name,
-          });
-
-          if (exitAfterSave) {
-            this.props.history.push("/models");
-          } else {
-            this.props.history.push(`/models/${this.state.model.owner}/${this.state.model.name}`);
-          }
-        } else {
-          Setting.showMessage("error", `${i18next.t("general:Failed to save")}: ${res.msg}`);
-          this.updateModelField("name", this.state.modelName);
-        }
-      })
-      .catch(error => {
-        Setting.showMessage("error", `${i18next.t("general:Failed to connect to server")}: ${error}`);
-      });
-  }
-
-  deleteModel() {
-    ModelBackend.deleteModel(this.state.model)
-      .then((res) => {
-        if (res.status === "ok") {
-          this.props.history.push("/models");
-        } else {
-          Setting.showMessage("error", `${i18next.t("general:Failed to delete")}: ${res.msg}`);
-        }
-      })
-      .catch(error => {
-        Setting.showMessage("error", `${i18next.t("general:Failed to connect to server")}: ${error}`);
-      });
-  }
+  toggleEditor = () => {
+    this.setState(prevState => ({
+      useIframeEditor: !prevState.useIframeEditor,
+    }));
+  };
 
   render() {
     return (
