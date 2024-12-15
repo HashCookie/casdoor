@@ -594,12 +594,14 @@
   "model": {
     "Edit Model": "Modeli Düzenle",
     "Model text": "Model text",
-    "Model text - Tooltip": "Casbin access control model, including built-in models like ACL, RBAC, ABAC, RESTful, etc. You can also create custom models. For more information, please visit the Casbin website",
-    "New Model": "New Model"
+    "Model text - Tooltip": "Casbin erişim kontrol modeli, ACL, RBAC, ABAC, RESTful gibi yerleşik modelleri içerir. Özel modeller de oluşturabilirsiniz. Daha fazla bilgi için Casbin web sitesini ziyaret edin",
+    "New Model": "Yeni Model",
+    "Basic Editor": "Temel Editör",
+    "Advanced Editor": "Gelişmiş Editör"
   },
   "organization": {
-    "Account items": "Account items",
-    "Account items - Tooltip": "Items in the Personal settings page",
+    "Account items": "Hesap öğeleri",
+    "Account items - Tooltip": "Hesap öğeleri",
     "All": "Tümü",
     "Edit Organization": "Edit Organization",
     "Follow global theme": "Follow global theme",

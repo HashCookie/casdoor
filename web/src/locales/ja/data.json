@@ -595,7 +595,9 @@
     "Edit Model": "編集モデル",
     "Model text": "モデルテキスト",
     "Model text - Tooltip": "Casbinのアクセス制御モデルには、ACL、RBAC、ABAC、RESTfulなどの組み込みモデルが含まれています。カスタムモデルも作成できます。詳細については、Casbinのウェブサイトをご覧ください",
-    "New Model": "新しいモデル"
+    "New Model": "新しいモデル",
+    "Basic Editor": "基本エディタ",
+    "Advanced Editor": "高度なエディタ"
   },
   "organization": {
     "Account items": "アカウントアイテム",
